@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +12,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
+
+    private var firstCard: ImageView? = null
+    private var isBusy = false
+    private var pairsFound = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,19 +86,38 @@ class MainActivity : AppCompatActivity() {
         setContentView(layout)
     }
 
-    private suspend fun openCard(v: View) {
-        if (v !is ImageView) return
-        val resId = v.tag as? Int ?: return
-        v.isClickable = false
-        v.setImageResource(resId)
-        delay(1000)
-        v.setImageResource(R.drawable.card_back)
-        v.isClickable = true
-    }
-
     private val colorListener = View.OnClickListener { v ->
-        lifecycleScope.launch(Dispatchers.Main) {
-            openCard(v)
+        val card = v as? ImageView ?: return@OnClickListener
+        if (isBusy || card.visibility != View.VISIBLE || card == firstCard) return@OnClickListener
+
+        val resId = card.tag as? Int ?: return@OnClickListener
+        card.setImageResource(resId)
+
+        if (firstCard == null) {
+            firstCard = card
+        } else {
+            val secondCard = card
+            val first = firstCard!!
+            isBusy = true
+
+            lifecycleScope.launch(Dispatchers.Main) {
+                delay(1000)
+                if (first.tag == secondCard.tag) {
+                    first.visibility = View.INVISIBLE
+                    secondCard.visibility = View.INVISIBLE
+                    first.isClickable = false
+                    secondCard.isClickable = false
+                    pairsFound++
+                    if (pairsFound == 8) {
+                        Toast.makeText(this@MainActivity, "Победа! Все пары найдены!", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    first.setImageResource(R.drawable.card_back)
+                    secondCard.setImageResource(R.drawable.card_back)
+                }
+                firstCard = null
+                isBusy = false
+            }
         }
     }
 }
